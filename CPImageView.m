@@ -125,9 +125,9 @@ static NSMutableDictionary *CPImageViewCache;
     }
     UIImage *img = [CPImageViewCache objectForKey:url];
     self.contentMode = UIViewContentModeScaleAspectFill;
-    if(!img){ //not found on RAM cache
+    if(!img){ //not found on memory cache
         img = [CPImageView persistentCachedImageForURL:url.absoluteString];
-        if(!img){ //not found on persistent cache too. sike sike yuklicez.
+        if(!img){ //not found on persistent cache too. we need to download the image
             if(clear){
                 [self setImage:nil];
             }
@@ -160,7 +160,7 @@ static NSMutableDictionary *CPImageViewCache;
                     NSLog(@"[CPImageView] Unable to load %@", url.absoluteString);
                 }
             });
-        }else{ //loaded from persistent cache
+        }else{ //loaded from persistent cache (file system)
             if(CPImageViewShouldLogDetailedEvents){
                 NSLog(@"[CPImageView] Loaded storage-cached image %@", url.absoluteString);
             }
@@ -169,7 +169,7 @@ static NSMutableDictionary *CPImageViewCache;
                 self.imageLoadedHandler(img);
             }
         }
-    }else{ //loaded from cache
+    }else{ //loaded from memory cache (RAM)
         if(CPImageViewShouldLogDetailedEvents){
             NSLog(@"[CPImageView] Loaded memory-cached image %@", url.absoluteString);
         }
