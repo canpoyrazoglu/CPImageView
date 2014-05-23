@@ -59,38 +59,16 @@ static BOOL CPImageViewShouldLogDetailedEvents;
     [UIImageJPEGRepresentation(img, 0.9) writeToFile:fullPath atomically:NO];
 }
 
--(id)initWithImageURL:(NSURL *)imageURL{
+-(id)initWithImageURL:(id)imageURLString{
     self = [super init];
     if(self){
-        [self setImageFromURL:imageURL];
+        [self setImageFromURL:imageURLString];
     }
     return self;
 }
 
--(id)initWithImageURLString:(NSString *)imageURLString{
-    self = [super init];
-    if(self){
-        [self setImageFromURLString:imageURLString];
-    }
-    return self;
-}
-
--(void)setImageFromURLString:(NSString*)urlString{
-    while ([urlString hasPrefix:@" "]) {
-        urlString = [urlString substringFromIndex:1];
-    }
-    [self setImageFromURL:[NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]]];
-}
-
--(void)setImageFromURLString:(NSString*)urlString clearPreviousImageWhileLoading:(BOOL)clear{
-    while ([urlString hasPrefix:@" "]) {
-        urlString = [urlString substringFromIndex:1];
-    }
-    [self setImageFromURL:[NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]] clearPreviousImageWhileLoading:clear];
-}
-
--(void)setImageFromURL:(NSURL*)url{
-    [self setImageFromURL:url clearPreviousImageWhileLoading:YES];
+-(void)setImageFromURL:(NSString*)urlString{
+    [self setImageFromURL:urlString clearPreviousImageWhileLoading:NO];
 }
 
 static NSMutableDictionary *CPImageViewCache;
@@ -127,7 +105,10 @@ static NSMutableDictionary *CPImageViewCache;
         return;
     }
     if([url isKindOfClass:[NSString class]]){
-        url = [NSURL URLWithString:url];
+        while ([url hasPrefix:@" "]) {
+            url = [url substringFromIndex:1];
+        }
+        url = [NSURL URLWithString:[url stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     }
     self.url = url;
    

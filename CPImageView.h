@@ -9,11 +9,9 @@ typedef void (^CPImageHandler)(UIImage *loadedImage);
 typedef UIImage *(^CPImageProcessingFunction)(UIImage *loadedImage);
 
 @interface CPImageView : UIImageView
--(void)setImageFromURLString:(NSString*)urlString;
--(void)setImageFromURL:(NSURL*)url;
+-(void)setImageFromURL:(id)url;
 
--(id)initWithImageURL:(NSURL *)imageURL;
--(id)initWithImageURLString:(NSString *)imageURLString;
+-(id)initWithImageURL:(id)imageURL;
 
 -(void)setImageFromURL:(id)url clearPreviousImageWhileLoading:(BOOL)clear;
 +(void)clearCache;
