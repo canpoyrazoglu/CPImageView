@@ -15,11 +15,10 @@ typedef UIImage *(^CPImageProcessingFunction)(UIImage *loadedImage);
 -(id)initWithImageURL:(NSURL *)imageURL;
 -(id)initWithImageURLString:(NSString *)imageURLString;
 
--(void)setImageFromURL:(NSURL*)url clearPreviousImageWhileLoading:(BOOL)clear;
--(void)setImageFromURLString:(NSString*)urlString clearPreviousImageWhileLoading:(BOOL)clear;
+-(void)setImageFromURL:(id)url clearPreviousImageWhileLoading:(BOOL)clear;
 +(void)clearCache;
-+(UIImage*)persistentCachedImageForURL:(NSString*)url;
-+(void)persistentlyCacheImage:(UIImage*)img forURL:(NSURL*)url;
++(UIImage*)storedImageForURL:(id)url;
++(void)storeImage:(UIImage*)img forURL:(id)url;
 +(void)logEventDetails;
 
 @property(copy) CPImageHandler imageLoadedHandler;

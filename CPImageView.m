@@ -32,7 +32,11 @@ static BOOL CPImageViewShouldLogDetailedEvents;
     return nonAlphaNumericalSet;
 }
 
-+(UIImage*)persistentCachedImageForURL:(NSString*)url{
++(UIImage*)storedImageForURL:(id)url{
+    //accept both NSString and NSURL, convert URL to string if required
+    if([url isKindOfClass:[NSURL class]]){
+        url = [url absoluteString];
+    }
     NSString *path = [url stringByTrimmingCharactersInSet:[CPImageView nonAlphaNumericalCharacterSet]];
     path = [path stringByReplacingOccurrencesOfString:@"/" withString:@"_"];
     path = [path stringByReplacingOccurrencesOfString:@":" withString:@"_"];
@@ -41,8 +45,12 @@ static BOOL CPImageViewShouldLogDetailedEvents;
     return [UIImage imageWithContentsOfFile:fullPath];
 }
 
-+(void)persistentlyCacheImage:(UIImage*)img forURL:(NSURL*)url{
-    NSString *path = url.absoluteString;
++(void)storeImage:(UIImage*)img forURL:(id)url{
+    //accept both NSString and NSURL, convert string to URL if required
+    if([url isKindOfClass:[NSString class]]){
+        url = [NSURL URLWithString:url];
+    }
+    NSString *path = [url absoluteString];
     path = [path stringByReplacingOccurrencesOfString:@"/" withString:@"_"];
     path = [path stringByReplacingOccurrencesOfString:@":" withString:@"_"];
     path = [NSString stringWithFormat:@"CPImageViewCache_%@", path];
@@ -113,20 +121,28 @@ static NSMutableDictionary *CPImageViewCache;
     }
 }
 
--(void)setImageFromURL:(NSURL*)url clearPreviousImageWhileLoading:(BOOL)clear{
+-(void)setImageFromURL:(id)url clearPreviousImageWhileLoading:(BOOL)clear{
+    if(!url){
+        [self setImage:nil];
+        return;
+    }
+    if([url isKindOfClass:[NSString class]]){
+        url = [NSURL URLWithString:url];
+    }
     self.url = url;
+   
     if(!CPImageViewCache){
         CPImageViewCache = [NSMutableDictionary dictionary];
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didReceiveMemoryWarning:) name: UIApplicationDidReceiveMemoryWarningNotification object:nil];
     }
-    NSString *thisURL = url.absoluteString;
+    NSString *thisURL = [url absoluteString];
     @synchronized(self){
         loadingURL = thisURL;
     }
     UIImage *img = [CPImageViewCache objectForKey:url];
     self.contentMode = UIViewContentModeScaleAspectFill;
     if(!img){ //not found on memory cache
-        img = [CPImageView persistentCachedImageForURL:url.absoluteString];
+        img = [CPImageView storedImageForURL:[url absoluteString]];
         if(!img){ //not found on persistent cache too. we need to download the image
             if(clear){
                 [self setImage:nil];
@@ -136,9 +152,9 @@ static NSMutableDictionary *CPImageViewCache;
                 UIImage *downloadedImage = [UIImage imageWithData:[NSData dataWithContentsOfURL:url]];
                 if(downloadedImage){
                     if(CPImageViewShouldLogDetailedEvents){
-                        NSLog(@"[CPImageView] Loaded image from URL %@", url.absoluteString);
+                        NSLog(@"[CPImageView] Loaded image from URL %@", [url absoluteString]);
                     }
-                    [CPImageView persistentlyCacheImage:downloadedImage forURL:url];
+                    [CPImageView storeImage:downloadedImage forURL:url];
                     BOOL updateImageView = NO;
                     @synchronized(CPImageViewCache){
                         [CPImageViewCache setObject:downloadedImage forKey:url];
@@ -157,12 +173,12 @@ static NSMutableDictionary *CPImageViewCache;
                         });
                     }
                 }else{
-                    NSLog(@"[CPImageView] Unable to load %@", url.absoluteString);
+                    NSLog(@"[CPImageView] Unable to load %@", [url absoluteString]);
                 }
             });
         }else{ //loaded from persistent cache (file system)
             if(CPImageViewShouldLogDetailedEvents){
-                NSLog(@"[CPImageView] Loaded storage-cached image %@", url.absoluteString);
+                NSLog(@"[CPImageView] Loaded storage-cached image %@", [url absoluteString]);
             }
             [self setImage:img];
             if(self.imageLoadedHandler){
@@ -171,7 +187,7 @@ static NSMutableDictionary *CPImageViewCache;
         }
     }else{ //loaded from memory cache (RAM)
         if(CPImageViewShouldLogDetailedEvents){
-            NSLog(@"[CPImageView] Loaded memory-cached image %@", url.absoluteString);
+            NSLog(@"[CPImageView] Loaded memory-cached image %@", [url absoluteString]);
         }
         [self setImage:img];
         if(self.imageLoadedHandler){
