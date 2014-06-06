@@ -92,7 +92,7 @@ static NSMutableDictionary *CPImageViewCache;
 }
 
 -(void)didReceiveMemoryWarning:(NSNotification*)notif{
-    unsigned int items = CPImageViewCache.count;
+    NSUInteger items = CPImageViewCache.count;
     if(items){
         [CPImageViewCache removeAllObjects];
         NSLog(@"[CPImageView] Cleared %d items from cache due to memory pressure", items);
