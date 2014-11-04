@@ -15,7 +15,7 @@ static BOOL CPImageViewShouldLogDetailedEvents;
 
 +(NSString *)documentsDirectory {
     if(!documentsDir){
-        documentsDir = ((NSURL*)[[[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory
+        documentsDir = ((NSURL*)[[[NSFileManager defaultManager] URLsForDirectory:NSCachesDirectory
                                                                         inDomains:NSUserDomainMask] lastObject]).path;
     }
     return documentsDir;
