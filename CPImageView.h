@@ -18,8 +18,11 @@ typedef UIImage *(^CPImageProcessingFunction)(UIImage *loadedImage);
 +(UIImage*)storedImageForURL:(id)url;
 +(void)storeImage:(UIImage*)img forURL:(id)url;
 +(void)logEventDetails;
++(void)forceHttpsForAllRequests;
 
 @property(copy) CPImageHandler imageLoadedHandler;
-@property NSURL *url;
+@property IBInspectable BOOL unlockAspectRatio;
+@property(copy) NSURL *url;
 @property(copy) CPImageProcessingFunction imageProcessingFunction;
+@property(copy) IBInspectable UIColor *loadingColor;
 @end

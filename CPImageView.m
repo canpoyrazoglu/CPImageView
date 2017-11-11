@@ -4,6 +4,7 @@
 //
 
 #import "CPImageView.h"
+#import <AssetsLibrary/AssetsLibrary.h>
 
 @implementation CPImageView{
     NSString *loadingURL;
@@ -12,6 +13,8 @@
 static NSString *documentsDir;
 static NSCharacterSet *nonAlphaNumericalSet;
 static BOOL CPImageViewShouldLogDetailedEvents;
+static ALAssetsLibrary *assetsLibrary;
+static BOOL forceHttps;
 
 +(NSString *)documentsDirectory {
     if(!documentsDir){
@@ -30,6 +33,10 @@ static BOOL CPImageViewShouldLogDetailedEvents;
         nonAlphaNumericalSet = [[NSCharacterSet alphanumericCharacterSet] invertedSet];
     }
     return nonAlphaNumericalSet;
+}
+
++(void)forceHttpsForAllRequests{
+    forceHttps = YES;
 }
 
 +(UIImage*)storedImageForURL:(id)url{
@@ -95,8 +102,12 @@ static NSMutableDictionary *CPImageViewCache;
     NSUInteger items = CPImageViewCache.count;
     if(items){
         [CPImageViewCache removeAllObjects];
-        NSLog(@"[CPImageView] Cleared %d items from cache due to memory pressure", items);
+        NSLog(@"[CPImageView] Cleared %lu items from cache due to memory pressure", (unsigned long)items);
     }
+}
+
+-(void)dealloc{
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 -(void)setImageFromURL:(id)url clearPreviousImageWhileLoading:(BOOL)clear{
@@ -110,8 +121,12 @@ static NSMutableDictionary *CPImageViewCache;
         }
         url = [NSURL URLWithString:[url stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     }
+    NSString *absoluteString = [url absoluteString];
+    if(forceHttps && [absoluteString hasPrefix:@"http://"]){
+        url = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@", [absoluteString substringFromIndex:7]]];
+    }
     self.url = url;
-   
+    
     if(!CPImageViewCache){
         CPImageViewCache = [NSMutableDictionary dictionary];
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didReceiveMemoryWarning:) name: UIApplicationDidReceiveMemoryWarningNotification object:nil];
@@ -121,40 +136,72 @@ static NSMutableDictionary *CPImageViewCache;
         loadingURL = thisURL;
     }
     UIImage *img = [CPImageViewCache objectForKey:url];
-    self.contentMode = UIViewContentModeScaleAspectFill;
+    if(self.unlockAspectRatio){
+        self.contentMode = UIViewContentModeScaleAspectFill;
+    }
     if(!img){ //not found on memory cache
         img = [CPImageView storedImageForURL:[url absoluteString]];
         if(!img){ //not found on persistent cache too. we need to download the image
             if(clear){
                 [self setImage:nil];
             }
-            self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.2];
+            self.backgroundColor = self.loadingColor ? self.loadingColor : [UIColor colorWithWhite:0 alpha:0.2];
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0L), ^{
-                UIImage *downloadedImage = [UIImage imageWithData:[NSData dataWithContentsOfURL:url]];
-                if(downloadedImage){
-                    if(CPImageViewShouldLogDetailedEvents){
-                        NSLog(@"[CPImageView] Loaded image from URL %@", [url absoluteString]);
+                if([loadingURL hasPrefix:@"assets-library"]){
+                    if(!assetsLibrary){
+                        assetsLibrary = [[ALAssetsLibrary alloc] init];
                     }
-                    [CPImageView storeImage:downloadedImage forURL:url];
-                    BOOL updateImageView = NO;
-                    @synchronized(CPImageViewCache){
-                        [CPImageViewCache setObject:downloadedImage forKey:url];
-                    }
-                    @synchronized(self){
-                        if([thisURL isEqualToString:loadingURL]){
-                            updateImageView = YES;
-                        }
-                    }
-                    if(updateImageView){
-                        dispatch_async(dispatch_get_main_queue(), ^{
-                            [self setImage:downloadedImage];
-                            if(self.imageLoadedHandler){
-                                self.imageLoadedHandler(downloadedImage);
-                            }
-                        });
-                    }
+                    [assetsLibrary assetForURL:url
+                                   resultBlock:^(ALAsset *asset){
+                                       ALAssetRepresentation *representation = [asset defaultRepresentation];
+                                       CGImageRef imageRef = self.frame.size.width < 200 ? [asset thumbnail] : [representation fullResolutionImage];
+                                       UIImage *img = [UIImage imageWithCGImage:imageRef];
+                                       if(imageRef) {
+                                           dispatch_async(dispatch_get_main_queue(), ^{
+                                               @try {
+                                                   self.image = img;
+                                               }
+                                               @catch (NSException *exception) {
+                                                   NSLog(@"[CPImageView ]Unable to get image thumbnail from CG Image.");
+                                                   self.image = nil;
+                                               }
+                                               
+                                           });
+                                           NSLog(@"[CPImageView] Loaded asset from URL %@", [url absoluteString]);
+                                       }else{
+                                           NSLog(@"[CPImageView] Unable to load asset from URL %@", [url absoluteString]);
+                                       }
+                                   }
+                                  failureBlock:^(NSError *error){
+                                      NSLog(@"[CPImageView] Failed to load asset from URL %@: %@", [url absoluteString], [error description]);
+                                  }];
                 }else{
-                    NSLog(@"[CPImageView] Unable to load %@", [url absoluteString]);
+                    UIImage *downloadedImage = [UIImage imageWithData:[NSData dataWithContentsOfURL:url]];
+                    if(downloadedImage){
+                        if(CPImageViewShouldLogDetailedEvents){
+                            NSLog(@"[CPImageView] Loaded image from URL %@", [url absoluteString]);
+                        }
+                        [CPImageView storeImage:downloadedImage forURL:url];
+                        BOOL updateImageView = NO;
+                        @synchronized(CPImageViewCache){
+                            [CPImageViewCache setObject:downloadedImage forKey:url];
+                        }
+                        @synchronized(self){
+                            if([thisURL isEqualToString:loadingURL]){
+                                updateImageView = YES;
+                            }
+                        }
+                        if(updateImageView){
+                            dispatch_async(dispatch_get_main_queue(), ^{
+                                [self setImage:downloadedImage];
+                                if(self.imageLoadedHandler){
+                                    self.imageLoadedHandler(downloadedImage);
+                                }
+                            });
+                        }
+                    }else{
+                        NSLog(@"[CPImageView] Unable to load %@", [url absoluteString]);
+                    }
                 }
             });
         }else{ //loaded from persistent cache (file system)
